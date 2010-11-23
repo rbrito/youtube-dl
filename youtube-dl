@@ -417,7 +417,11 @@ class FileDownloader(object):
 			if self.params.get('forcetitle', False):
 				print info_dict['title'].encode(preferredencoding(), 'xmlcharrefreplace')
 			if self.params.get('forceurl', False):
-				print info_dict['url'].encode(preferredencoding(), 'xmlcharrefreplace')
+				template_dict = dict(info_dict)
+				template_dict['epoch'] = unicode(long(time.time()))
+				template_dict['ord'] = unicode('%05d' % self._num_downloads)
+				filename = "%(stitle)s-%(id)s.%(ext)s" % template_dict
+				print "%s\n out=%s" % (info_dict['url'].encode(preferredencoding(), 'xmlcharrefreplace'), filename)
 			if self.params.get('forcethumbnail', False) and 'thumbnail' in info_dict:
 				print info_dict['thumbnail'].encode(preferredencoding(), 'xmlcharrefreplace')
 			if self.params.get('forcedescription', False) and 'description' in info_dict:
