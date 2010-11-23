@@ -530,10 +530,32 @@ class FileDownloader(object):
 			self.trouble(u'\nERROR: rtmpdump exited with code %d' % retval)
 			return False
 
+	def _download_with_aria2c(self, filename, url, player_url):
+		self.report_destination(filename)
+
+		# Check for aria2c first
+		try:
+			subprocess.call(['aria2c', '-h'], stdout=(file(os.path.devnull, 'w')), stderr=subprocess.STDOUT)
+		except (OSError, IOError):
+			self.trouble(u'ERROR: external program requested but "aria2c" could not be run')
+			return False
+
+		basic_args = ['aria2c', '-c'] + ['-o', filename, url]
+		retval = subprocess.call(basic_args)
+
+		if retval == 0:
+			self.to_stdout(u'\r[aria2c] %s bytes' % os.path.getsize(filename))
+			return True
+		else:
+			self.trouble(u'\nERROR: aria2c exited with code %d' % retval)
+			return False
+
 	def _do_download(self, filename, url, player_url):
 		# Attempt to download using rtmpdump
 		if url.startswith('rtmp'):
 			return self._download_with_rtmpdump(filename, url, player_url)
+
+		return self._download_with_aria2c(filename, url, player_url)
 
 		stream = None
 		open_mode = 'wb'
