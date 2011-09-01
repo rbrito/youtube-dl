@@ -693,7 +693,11 @@ class FileDownloader(object):
 			if self.params.get('forcetitle', False):
 				print info_dict['title'].encode(preferredencoding(), 'xmlcharrefreplace')
 			if self.params.get('forceurl', False):
-				print info_dict['url'].encode(preferredencoding(), 'xmlcharrefreplace')
+				template_dict = dict(info_dict)
+				template_dict['epoch'] = unicode(long(time.time()))
+				template_dict['ord'] = unicode('%05d' % self._num_downloads)
+				filename = "%(stitle)s-%(id)s.%(ext)s" % template_dict
+				print "%s\n out=%s" % (info_dict['url'].encode(preferredencoding(), 'xmlcharrefreplace'), filename)
 			if self.params.get('forcethumbnail', False) and 'thumbnail' in info_dict:
 				print info_dict['thumbnail'].encode(preferredencoding(), 'xmlcharrefreplace')
 			if self.params.get('forcedescription', False) and 'description' in info_dict:
@@ -831,6 +835,26 @@ class FileDownloader(object):
 			self.trouble(u'\nERROR: rtmpdump exited with code %d' % retval)
 			return False
 
+	def _download_with_aria2c(self, filename, url, player_url):
+		self.report_destination(filename)
+
+		# Check for aria2c first
+		try:
+			subprocess.call(['aria2c', '-h'], stdout=(file(os.path.devnull, 'w')), stderr=subprocess.STDOUT)
+		except (OSError, IOError):
+			self.trouble(u'ERROR: external program requested but "aria2c" could not be run')
+			return False
+
+		basic_args = ['aria2c', '-c'] + ['-o', filename, url]
+		retval = subprocess.call(basic_args)
+
+		if retval == 0:
+			self.to_stdout(u'\r[aria2c] %s bytes' % os.path.getsize(filename))
+			return True
+		else:
+			self.trouble(u'\nERROR: aria2c exited with code %d' % retval)
+			return False
+
 	def _do_download(self, filename, url, player_url):
 		# Check file already present
 		if self.params.get('continuedl', False) and os.path.isfile(filename) and not self.params.get('nopart', False):
@@ -841,7 +865,8 @@ class FileDownloader(object):
 		if url.startswith('rtmp'):
 			return self._download_with_rtmpdump(filename, url, player_url)
 
-		tmpfilename = self.temp_name(filename)
+		return self._download_with_aria2c(filename, url, player_url)
+
 		stream = None
 		open_mode = 'wb'
 
