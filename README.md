@@ -33,13 +33,17 @@ which means you can modify it, redistribute it or use it however you like.
     -t, --title              use title in file name
     -l, --literal            use literal title in file name
     -A, --auto-number        number downloaded files starting from 00000
-    -o, --output TEMPLATE    output filename template
+    -o, --output TEMPLATE    output filename template. Use %(stitle)s to get the
+                             title, %(uploader)s for the uploader name,
+                             %(autonumber)s to get an automatically incremented
+                             number, %(ext)s for the filename extension, and %%
+                             for a literal percent
     -a, --batch-file FILE    file containing URLs to download ('-' for stdin)
     -w, --no-overwrites      do not overwrite files
     -c, --continue           resume partially downloaded files
     --no-continue            do not resume partially downloaded files (restart
                              from beginning)
-    --cookies FILE           file to dump cookie jar to
+    --cookies FILE           file to read cookies from and dump cookie jar in
     --no-part                do not use .part files
     --no-mtime               do not use the Last-modified header to set the file
                              modification time
@@ -73,7 +77,7 @@ which means you can modify it, redistribute it or use it however you like.
 ### Post-processing Options:
     --extract-audio          convert video files to audio-only files (requires
                              ffmpeg and ffprobe)
-    --audio-format FORMAT    "best", "aac" or "mp3"; best by default
+    --audio-format FORMAT    "best", "aac", "vorbis" or "mp3"; best by default
     --audio-quality QUALITY  ffmpeg audio bitrate specification, 128k by default
     -k, --keep-video         keeps the video file on disk after the post-
                              processing; the video is erased by default

@@ -15,7 +15,7 @@ __author__  = (
 	)
 
 __license__ = 'Public Domain'
-__version__ = '2011.09.18'
+__version__ = '2011.09.18c'
 
 UPDATE_URL = 'https://raw.github.com/rg3/youtube-dl/master/youtube-dl'
 
@@ -1107,13 +1107,13 @@ class InfoExtractor(object):
 class YoutubeIE(InfoExtractor):
 	"""Information extractor for youtube.com."""
 
-	_VALID_URL = r'^((?:https?://)?(?:youtu\.be/|(?:\w+\.)?youtube(?:-nocookie)?\.com/)(?:(?:(?:v|embed|e)/)|(?:(?:watch(?:_popup)?(?:\.php)?)?(?:\?|#!?)(?:.+&)?v=))?)?([0-9A-Za-z_-]+)(?(1).+)?$'
+	_VALID_URL = r'^((?:https?://)?(?:youtu\.be/|(?:\w+\.)?youtube(?:-nocookie)?\.com/)(?!view_play_list|my_playlists|artist|playlist)(?:(?:(?:v|embed|e)/)|(?:(?:watch(?:_popup)?(?:\.php)?)?(?:\?|#!?)(?:.+&)?v=))?)?([0-9A-Za-z_-]+)(?(1).+)?$'
 	_LANG_URL = r'http://www.youtube.com/?hl=en&persist_hl=1&gl=US&persist_gl=1&opt_out_ackd=1'
 	_LOGIN_URL = 'https://www.youtube.com/signup?next=/&gl=US&hl=en'
 	_AGE_URL = 'http://www.youtube.com/verify_age?next_url=/&gl=US&hl=en'
 	_NETRC_MACHINE = 'youtube'
 	# Listed in order of quality
-	_available_formats = ['38', '37', '45', '22', '43', '35', '34', '18', '6', '5', '17', '13']
+	_available_formats = ['38', '37', '22', '45', '35', '44', '34', '18', '43', '6', '5', '17', '13']
 	_video_extensions = {
 		'13': '3gp',
 		'17': 'mp4',
@@ -1122,6 +1122,7 @@ class YoutubeIE(InfoExtractor):
 		'37': 'mp4',
 		'38': 'video', # You actually don't know if this will be MOV, AVI or whatever
 		'43': 'webm',
+		'44': 'webm',
 		'45': 'webm',
 	}
 	IE_NAME = u'youtube'
@@ -2456,7 +2457,7 @@ class YahooSearchIE(InfoExtractor):
 class YoutubePlaylistIE(InfoExtractor):
 	"""Information Extractor for YouTube playlists."""
 
-	_VALID_URL = r'(?:http://)?(?:\w+\.)?youtube.com/(?:(?:view_play_list|my_playlists|artist|playlist)\?.*?(p|a|list)=|user/.*?/user/|p/|user/.*?#[pg]/c/)([0-9A-Za-z]+)(?:/.*?/([0-9A-Za-z_-]+))?.*'
+	_VALID_URL = r'(?:https?://)?(?:\w+\.)?youtube\.com/(?:(?:view_play_list|my_playlists|artist|playlist)\?.*?(p|a|list)=|user/.*?/user/|p/|user/.*?#[pg]/c/)([0-9A-Za-z]+)(?:/.*?/([0-9A-Za-z_-]+))?.*'
 	_TEMPLATE_URL = 'http://www.youtube.com/%s?%s=%s&page=%s&gl=US&hl=en'
 	_VIDEO_INDICATOR = r'/watch\?v=(.+?)&'
 	_MORE_PAGES_INDICATOR = r'(?m)>\s*Next\s*</a>'
@@ -2530,7 +2531,7 @@ class YoutubePlaylistIE(InfoExtractor):
 class YoutubeUserIE(InfoExtractor):
 	"""Information Extractor for YouTube users."""
 
-	_VALID_URL = r'(?:(?:(?:http://)?(?:\w+\.)?youtube.com/user/)|ytuser:)([A-Za-z0-9_-]+)'
+	_VALID_URL = r'(?:(?:(?:https?://)?(?:\w+\.)?youtube\.com/user/)|ytuser:)([A-Za-z0-9_-]+)'
 	_TEMPLATE_URL = 'http://gdata.youtube.com/feeds/api/users/%s'
 	_GDATA_PAGE_SIZE = 50
 	_GDATA_URL = 'http://gdata.youtube.com/feeds/api/users/%s/uploads?max-results=%d&start-index=%d'
@@ -2618,7 +2619,7 @@ class YoutubeUserIE(InfoExtractor):
 class DepositFilesIE(InfoExtractor):
 	"""Information extractor for depositfiles.com"""
 
-	_VALID_URL = r'(?:http://)?(?:\w+\.)?depositfiles.com/(?:../(?#locale))?files/(.+)'
+	_VALID_URL = r'(?:http://)?(?:\w+\.)?depositfiles\.com/(?:../(?#locale))?files/(.+)'
 	IE_NAME = u'DepositFiles'
 
 	def __init__(self, downloader=None):
@@ -2695,7 +2696,7 @@ class DepositFilesIE(InfoExtractor):
 class FacebookIE(InfoExtractor):
 	"""Information Extractor for Facebook"""
 
-	_VALID_URL = r'^(?:https?://)?(?:\w+\.)?facebook.com/video/video.php\?(?:.*?)v=(?P<ID>\d+)(?:.*)'
+	_VALID_URL = r'^(?:https?://)?(?:\w+\.)?facebook\.com/video/video\.php\?(?:.*?)v=(?P<ID>\d+)(?:.*)'
 	_LOGIN_URL = 'https://login.facebook.com/login.php?m&next=http%3A%2F%2Fm.facebook.com%2Fhome.php&'
 	_NETRC_MACHINE = 'facebook'
 	_available_formats = ['highqual', 'lowqual']
@@ -3200,7 +3201,7 @@ class ComedyCentralIE(InfoExtractor):
 class EscapistIE(InfoExtractor):
 	"""Information extractor for The Escapist """
 
-	_VALID_URL = r'^(https?://)?(www\.)?escapistmagazine.com/videos/view/(?P<showname>[^/]+)/(?P<episode>[^/?]+)[/?]?.*$'
+	_VALID_URL = r'^(https?://)?(www\.)?escapistmagazine\.com/videos/view/(?P<showname>[^/]+)/(?P<episode>[^/?]+)[/?]?.*$'
 	IE_NAME = u'escapist'
 
 	def report_extraction(self, showName):
@@ -3375,12 +3376,14 @@ class FFmpegExtractAudioPP(PostProcessor):
 
 		more_opts = []
 		if self._preferredcodec == 'best' or self._preferredcodec == filecodec:
-			if filecodec == 'aac' or filecodec == 'mp3':
+			if filecodec in ['aac', 'mp3', 'vorbis']:
 				# Lossless if possible
 				acodec = 'copy'
 				extension = filecodec
 				if filecodec == 'aac':
 					more_opts = ['-f', 'adts']
+				if filecodec == 'vorbis':
+					extension = 'ogg'
 			else:
 				# MP3 otherwise.
 				acodec = 'libmp3lame'
@@ -3390,13 +3393,15 @@ class FFmpegExtractAudioPP(PostProcessor):
 					more_opts += ['-ab', self._preferredquality]
 		else:
 			# We convert the audio (lossy)
-			acodec = {'mp3': 'libmp3lame', 'aac': 'aac'}[self._preferredcodec]
+			acodec = {'mp3': 'libmp3lame', 'aac': 'aac', 'vorbis': 'libvorbis'}[self._preferredcodec]
 			extension = self._preferredcodec
 			more_opts = []
 			if self._preferredquality is not None:
 				more_opts += ['-ab', self._preferredquality]
 			if self._preferredcodec == 'aac':
 				more_opts += ['-f', 'adts']
+			if self._preferredcodec == 'vorbis':
+				extension = 'ogg'
 
 		(prefix, ext) = os.path.splitext(path)
 		new_path = prefix + '.' + extension
@@ -3596,7 +3601,7 @@ def parseOpts():
 			action='store_true', dest='autonumber',
 			help='number downloaded files starting from 00000', default=False)
 	filesystem.add_option('-o', '--output',
-			dest='outtmpl', metavar='TEMPLATE', help='output filename template')
+			dest='outtmpl', metavar='TEMPLATE', help='output filename template. Use %(stitle)s to get the title, %(uploader)s for the uploader name, %(autonumber)s to get an automatically incremented number, %(ext)s for the filename extension, and %% for a literal percent')
 	filesystem.add_option('-a', '--batch-file',
 			dest='batchfile', metavar='FILE', help='file containing URLs to download (\'-\' for stdin)')
 	filesystem.add_option('-w', '--no-overwrites',
@@ -3607,7 +3612,7 @@ def parseOpts():
 			action='store_false', dest='continue_dl',
 			help='do not resume partially downloaded files (restart from beginning)')
 	filesystem.add_option('--cookies',
-			dest='cookiefile', metavar='FILE', help='file to dump cookie jar to')
+			dest='cookiefile', metavar='FILE', help='file to read cookies from and dump cookie jar in')
 	filesystem.add_option('--no-part',
 			action='store_true', dest='nopart', help='do not use .part files', default=False)
 	filesystem.add_option('--no-mtime',
@@ -3624,7 +3629,7 @@ def parseOpts():
 	postproc.add_option('--extract-audio', action='store_true', dest='extractaudio', default=False,
 			help='convert video files to audio-only files (requires ffmpeg and ffprobe)')
 	postproc.add_option('--audio-format', metavar='FORMAT', dest='audioformat', default='best',
-			help='"best", "aac" or "mp3"; best by default')
+			help='"best", "aac", "vorbis" or "mp3"; best by default')
 	postproc.add_option('--audio-quality', metavar='QUALITY', dest='audioquality', default='128K',
 			help='ffmpeg audio bitrate specification, 128k by default')
 	postproc.add_option('-k', '--keep-video', action='store_true', dest='keepvideo', default=False,
@@ -3651,12 +3656,12 @@ def gen_extractors():
 	google_ie = GoogleIE()
 	yahoo_ie = YahooIE()
 	return [
-		youtube_ie,
-		MetacafeIE(youtube_ie),
-		DailymotionIE(),
 		YoutubePlaylistIE(youtube_ie),
 		YoutubeUserIE(youtube_ie),
 		YoutubeSearchIE(youtube_ie),
+		youtube_ie,
+		MetacafeIE(youtube_ie),
+		DailymotionIE(),
 		google_ie,
 		GoogleSearchIE(google_ie),
 		PhotobucketIE(),
@@ -3758,7 +3763,7 @@ def main():
 	except (TypeError, ValueError), err:
 		parser.error(u'invalid playlist end number specified')
 	if opts.extractaudio:
-		if opts.audioformat not in ['best', 'aac', 'mp3']:
+		if opts.audioformat not in ['best', 'aac', 'mp3', 'vorbis']:
 			parser.error(u'invalid audio format specified')
 
 	# File downloader
