@@ -864,9 +864,29 @@ class FileDownloader(object):
 			self.trouble(u'\nERROR: rtmpdump exited with code %d' % retval)
 			return False
 
-	# FIXME: This doesn't work currently due to the handling of cookies
-	def _download_with_aria2c(self, filename, info_dict):
-		url = info_dict['url']
+	# Create cookie file to keep some state.
+	# This should really be substituted by a cookiejar.
+	def _create_cookies_file(self):
+		import tempfile
+		cookies_handle, cookies_filename = tempfile.mkstemp()
+
+		f = open(cookies_filename, 'w')
+		time_now = int(time.time())
+		time_10years = time_now + 3650 * 24 * 3600
+		time_8months = time_now + 8 * 30 * 24 * 3600
+
+		cookies = [u'.youtube.com\tTRUE\t/\tFALSE\t' + str(time_10years) + '\tPREF\tf1=50000000&gl=US&hl=en',
+			   u'.youtube.com\tTRUE\t/\tFALSE\t' + str(time_8months) + '\tVISITOR_INFO1_LIVE\txiItCYKk0ag']
+
+		f.write('\n'.join(cookies))
+		f.close()
+		return cookies_filename
+
+	# This *is* ugly *and* we should get the original cookie instead of
+	# cooking our own.
+	#
+	# FIXME: No checking is performed at the moment.
+	def _download_with_aria2c(self, filename, url):
 		self.report_destination(filename)
 
 		# Check for aria2c first
@@ -875,11 +895,20 @@ class FileDownloader(object):
 					stdout=(file(os.path.devnull, 'w')),
 					stderr=subprocess.STDOUT)
 		except (OSError, IOError):
-			self.trouble(u'ERROR: external program requested but "aria2c" could not be run')
+			self.trouble(u'ERROR: external program requested, but "aria2c" could not be run')
 			return False
 
-		basic_args = ['aria2c', '-c'] + ['-o', filename, url]
+		cookies_filename = self._create_cookies_file()
+
+		basic_args = ['aria2c', '-c']
+		basic_args += ['-U', std_headers['User-Agent']]
+		basic_args += ['--load-cookies=' + cookies_filename ]
+		basic_args += ['-o', filename, url]
+
 		retval = subprocess.call(basic_args)
+
+		# The cookies are not necessary anymore
+		os.unlink(cookies_filename)
 
 		if retval == 0:
 			self.to_stdout(u'\r[aria2c] %s bytes' % os.path.getsize(filename))
@@ -901,7 +930,7 @@ class FileDownloader(object):
 		if url.startswith('rtmp'):
 			return self._download_with_rtmpdump(filename, url, player_url)
 
-		return self._download_with_aria2c(filename, url, player_url)
+		return self._download_with_aria2c(filename, url)
 
 		stream = None
 
