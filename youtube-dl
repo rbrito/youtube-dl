@@ -84,6 +84,10 @@ std_headers = {
 	'Accept-Language': 'en-us,en;q=0.5',
 }
 
+simple_title_chars = string.ascii_letters.decode('ascii') + string.digits.decode('ascii')
+
+jar = None
+
 try:
 	import json
 except ImportError: # Python <2.6, use trivialjson (https://github.com/phihag/trivialjson):
@@ -951,28 +955,24 @@ class FileDownloader(object):
 			self.trouble(u'\nERROR: rtmpdump exited with code %d' % retval)
 			return False
 
-	# Create cookie file to keep some state.
-	# This should really be substituted by a cookiejar.
-	def _create_cookies_file(self):
-		import tempfile
-		cookies_handle, cookies_filename = tempfile.mkstemp()
-
-		f = open(cookies_filename, 'w')
-		time_now = int(time.time())
-		time_10years = time_now + 3650 * 24 * 3600
-		time_8months = time_now + 8 * 30 * 24 * 3600
-
-		cookies = [u'.youtube.com\tTRUE\t/\tFALSE\t' + str(time_10years) + '\tPREF\tf1=50000000&gl=US&hl=en',
-			   u'.youtube.com\tTRUE\t/\tFALSE\t' + str(time_8months) + '\tVISITOR_INFO1_LIVE\txiItCYKk0ag']
-
-		f.write('\n'.join(cookies))
-		f.close()
-		return cookies_filename
-
-	# This *is* ugly *and* we should get the original cookie instead of
-	# cooking our own.
+	# Keep a copy of the main cookiejar to pass to external downloaders
 	#
-	# FIXME: No checking is performed at the moment.
+	# This seems like a stupid way of copying a cookie, but if Alex Martelli says so...
+	# http://stackoverflow.com/questions/1023224/how-to-pickle-a-cookiejar/1023235#1023235
+	def _keep_cookie_jar(self):
+		import tempfile
+		global jar
+
+		new_filedesc, new_filename = tempfile.mkstemp()
+		new_jar = cookielib.MozillaCookieJar(new_filename)
+
+		for c in jar:
+			new_jar.set_cookie(c)
+
+		new_jar.save(new_filename)
+
+		return new_filename
+
 	def _download_with_aria2c(self, filename, url):
 		self.report_destination(filename)
 
@@ -983,17 +983,17 @@ class FileDownloader(object):
 			self.trouble(u'ERROR: external program requested, but "aria2c" could not be run')
 			return False
 
-		cookies_filename = self._create_cookies_file()
+		tmp_jar_name = self._keep_cookie_jar()
 
 		basic_args = ['aria2c', '-c']
 		basic_args += ['-U', std_headers['User-Agent']]
-		basic_args += ['--load-cookies=' + cookies_filename ]
+		basic_args += ['--load-cookies=' + tmp_jar_name ]
 		basic_args += ['-o', filename, url]
 
 		retval = subprocess.call(basic_args)
 
-		# The cookies are not necessary anymore
-		os.unlink(cookies_filename)
+		# The cookie jar is not necessary anymore
+		os.unlink(tmp_jar_name)
 
 		if retval == 0:
 			self.to_stdout(u'\r[aria2c] %s bytes' % os.path.getsize(filename))
@@ -4577,6 +4577,7 @@ def gen_extractors():
 def _real_main():
 	parser, opts, args = parseOpts()
 
+	global jar
 	# Open appropriate CookieJar
 	if opts.cookiefile is None:
 		jar = cookielib.CookieJar()
