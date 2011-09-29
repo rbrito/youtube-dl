@@ -15,7 +15,7 @@ __author__  = (
 	)
 
 __license__ = 'Public Domain'
-__version__ = '2011.09.18c'
+__version__ = '2011.09.27'
 
 UPDATE_URL = 'https://raw.github.com/rg3/youtube-dl/master/youtube-dl'
 
@@ -78,6 +78,8 @@ std_headers = {
 }
 
 simple_title_chars = string.ascii_letters.decode('ascii') + string.digits.decode('ascii')
+
+jar = None
 
 try:
 	import json
@@ -766,7 +768,8 @@ class FileDownloader(object):
 			try:
 				infof = open(infofn, 'wb')
 				try:
-					json.dump(info_dict, infof)
+					json_info_dict = dict((k,v) for k,v in info_dict.iteritems() if not k in ('urlhandle',))
+					json.dump(json_info_dict, infof)
 				finally:
 					infof.close()
 			except (OSError, IOError):
@@ -864,28 +867,24 @@ class FileDownloader(object):
 			self.trouble(u'\nERROR: rtmpdump exited with code %d' % retval)
 			return False
 
-	# Create cookie file to keep some state.
-	# This should really be substituted by a cookiejar.
-	def _create_cookies_file(self):
-		import tempfile
-		cookies_handle, cookies_filename = tempfile.mkstemp()
-
-		f = open(cookies_filename, 'w')
-		time_now = int(time.time())
-		time_10years = time_now + 3650 * 24 * 3600
-		time_8months = time_now + 8 * 30 * 24 * 3600
-
-		cookies = [u'.youtube.com\tTRUE\t/\tFALSE\t' + str(time_10years) + '\tPREF\tf1=50000000&gl=US&hl=en',
-			   u'.youtube.com\tTRUE\t/\tFALSE\t' + str(time_8months) + '\tVISITOR_INFO1_LIVE\txiItCYKk0ag']
-
-		f.write('\n'.join(cookies))
-		f.close()
-		return cookies_filename
-
-	# This *is* ugly *and* we should get the original cookie instead of
-	# cooking our own.
+	# Keep a copy of the main cookiejar to pass to external downloaders
 	#
-	# FIXME: No checking is performed at the moment.
+	# This seems like a stupid way of copying a cookie, but if Alex Martelli says so...
+	# http://stackoverflow.com/questions/1023224/how-to-pickle-a-cookiejar/1023235#1023235
+	def _keep_cookie_jar(self):
+		import tempfile
+		global jar
+
+		new_filedesc, new_filename = tempfile.mkstemp()
+		new_jar = cookielib.MozillaCookieJar(new_filename)
+
+		for c in jar:
+			new_jar.set_cookie(c)
+
+		new_jar.save(new_filename)
+
+		return new_filename
+
 	def _download_with_aria2c(self, filename, url):
 		self.report_destination(filename)
 
@@ -898,17 +897,17 @@ class FileDownloader(object):
 			self.trouble(u'ERROR: external program requested, but "aria2c" could not be run')
 			return False
 
-		cookies_filename = self._create_cookies_file()
+		tmp_jar_name = self._keep_cookie_jar()
 
 		basic_args = ['aria2c', '-c']
 		basic_args += ['-U', std_headers['User-Agent']]
-		basic_args += ['--load-cookies=' + cookies_filename ]
+		basic_args += ['--load-cookies=' + tmp_jar_name ]
 		basic_args += ['-o', filename, url]
 
 		retval = subprocess.call(basic_args)
 
-		# The cookies are not necessary anymore
-		os.unlink(cookies_filename)
+		# The cookie jar is not necessary anymore
+		os.unlink(tmp_jar_name)
 
 		if retval == 0:
 			self.to_stdout(u'\r[aria2c] %s bytes' % os.path.getsize(filename))
@@ -959,6 +958,8 @@ class FileDownloader(object):
 		while count <= retries:
 			# Establish connection
 			try:
+				if count == 0 and 'urlhandle' in info_dict:
+					data = info_dict['urlhandle']
 				data = urllib2.urlopen(request)
 				break
 			except (urllib2.HTTPError, ), err:
@@ -2949,7 +2950,11 @@ class BlipTVIE(InfoExtractor):
 
 	def report_extraction(self, file_id):
 		"""Report information extraction."""
-		self._downloader.to_screen(u'[blip.tv] %s: Extracting information' % file_id)
+		self._downloader.to_screen(u'[%s] %s: Extracting information' % (self.IE_NAME, file_id))
+
+	def report_direct_download(self, title):
+		"""Report information extraction."""
+		self._downloader.to_screen(u'[%s] %s: Direct download detected' % (self.IE_NAME, title))
 
 	def _simplify_title(self, title):
 		res = re.sub(ur'(?u)([^%s]+)' % simple_title_chars, ur'_', title)
@@ -2969,43 +2974,64 @@ class BlipTVIE(InfoExtractor):
 		json_url = url + cchar + 'skin=json&version=2&no_wrap=1'
 		request = urllib2.Request(json_url)
 		self.report_extraction(mobj.group(1))
+		info = None
 		try:
-			json_code = urllib2.urlopen(request).read()
+			urlh = urllib2.urlopen(request)
+			if urlh.headers.get('Content-Type', '').startswith('video/'): # Direct download
+				basename = url.split('/')[-1]
+				title,ext = os.path.splitext(basename)
+				ext = ext.replace('.', '')
+				self.report_direct_download(title)
+				info = {
+					'id': title,
+					'url': url,
+					'title': title,
+					'stitle': self._simplify_title(title),
+					'ext': ext,
+					'urlhandle': urlh
+				}
 		except (urllib2.URLError, httplib.HTTPException, socket.error), err:
 			self._downloader.trouble(u'ERROR: unable to download video info webpage: %s' % str(err))
 			return
-		try:
-			json_data = json.loads(json_code)
-			if 'Post' in json_data:
-				data = json_data['Post']
-			else:
-				data = json_data
+		if info is None: # Regular URL
+			try:
+				json_code = urlh.read()
+			except (urllib2.URLError, httplib.HTTPException, socket.error), err:
+				self._downloader.trouble(u'ERROR: unable to read video info webpage: %s' % str(err))
+				return
 
-			upload_date = datetime.datetime.strptime(data['datestamp'], '%m-%d-%y %H:%M%p').strftime('%Y%m%d')
-			video_url = data['media']['url']
-			umobj = re.match(self._URL_EXT, video_url)
-			if umobj is None:
-				raise ValueError('Can not determine filename extension')
-			ext = umobj.group(1)
+			try:
+				json_data = json.loads(json_code)
+				if 'Post' in json_data:
+					data = json_data['Post']
+				else:
+					data = json_data
+	
+				upload_date = datetime.datetime.strptime(data['datestamp'], '%m-%d-%y %H:%M%p').strftime('%Y%m%d')
+				video_url = data['media']['url']
+				umobj = re.match(self._URL_EXT, video_url)
+				if umobj is None:
+					raise ValueError('Can not determine filename extension')
+				ext = umobj.group(1)
+	
+				info = {
+					'id': data['item_id'],
+					'url': video_url,
+					'uploader': data['display_name'],
+					'upload_date': upload_date,
+					'title': data['title'],
+					'stitle': self._simplify_title(data['title']),
+					'ext': ext,
+					'format': data['media']['mimeType'],
+					'thumbnail': data['thumbnailUrl'],
+					'description': data['description'],
+					'player_url': data['embedUrl']
+				}
+			except (ValueError,KeyError), err:
+				self._downloader.trouble(u'ERROR: unable to parse video information: %s' % repr(err))
+				return
 
-			self._downloader.increment_downloads()
-
-			info = {
-				'id': data['item_id'],
-				'url': video_url,
-				'uploader': data['display_name'],
-				'upload_date': upload_date,
-				'title': data['title'],
-				'stitle': self._simplify_title(data['title']),
-				'ext': ext,
-				'format': data['media']['mimeType'],
-				'thumbnail': data['thumbnailUrl'],
-				'description': data['description'],
-				'player_url': data['embedUrl']
-			}
-		except (ValueError,KeyError), err:
-			self._downloader.trouble(u'ERROR: unable to parse video information: %s' % repr(err))
-			return
+		self._downloader.increment_downloads()
 
 		try:
 			self._downloader.process_info(info)
@@ -3071,7 +3097,6 @@ class MyVideoIE(InfoExtractor):
 		video_title = sanitize_title(video_title)
 
 		try:
-			print(video_url)
 			self._downloader.process_info({
 				'id':		video_id,
 				'url':		video_url,
@@ -3710,6 +3735,7 @@ def gen_extractors():
 def main():
 	parser, opts, args = parseOpts()
 
+	global jar
 	# Open appropriate CookieJar
 	if opts.cookiefile is None:
 		jar = cookielib.CookieJar()
