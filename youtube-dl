@@ -996,7 +996,7 @@ class FileDownloader(object):
 		os.unlink(tmp_jar_name)
 
 		if retval == 0:
-			self.to_stdout(u'\r[aria2c] %s bytes' % os.path.getsize(filename))
+			self.to_screen(u'\r[aria2c] %s bytes' % os.path.getsize(filename))
 			return True
 		else:
 			self.trouble(u'\nERROR: aria2c exited with code %d' % retval)
