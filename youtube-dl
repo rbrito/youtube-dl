@@ -15,7 +15,7 @@ __author__  = (
 	)
 
 __license__ = 'Public Domain'
-__version__ = '2011.09.30'
+__version__ = '2011.10.19'
 
 UPDATE_URL = 'https://raw.github.com/rg3/youtube-dl/master/youtube-dl'
 
@@ -2111,6 +2111,18 @@ class VimeoIE(InfoExtractor):
 			return
 		sig = mobj.group(1).decode('utf-8')
 
+		# Vimeo specific: extract video quality information
+		mobj = re.search(r'<isHD>(\d+)</isHD>', webpage)
+		if mobj is None:
+			self._downloader.trouble(u'ERROR: unable to extract video quality information')
+			return
+		quality = mobj.group(1).decode('utf-8')
+
+		if int(quality) == 1:
+			quality = 'hd'
+		else:
+			quality = 'sd'
+
 		# Vimeo specific: Extract request signature expiration
 		mobj = re.search(r'<request_signature_expires>(.*?)</request_signature_expires>', webpage)
 		if mobj is None:
@@ -2118,7 +2130,7 @@ class VimeoIE(InfoExtractor):
 			return
 		sig_exp = mobj.group(1).decode('utf-8')
 
-		video_url = "http://vimeo.com/moogaloop/play/clip:%s/%s/%s" % (video_id, sig, sig_exp)
+		video_url = "http://vimeo.com/moogaloop/play/clip:%s/%s/%s/?q=%s" % (video_id, sig, sig_exp, quality)
 
 		try:
 			# Process video information
@@ -3465,7 +3477,7 @@ class XVideosIE(InfoExtractor):
 
 		self.report_webpage(video_id)
 
-		request = urllib2.Request(url)
+		request = urllib2.Request(r'http://www.xvideos.com/video' + video_id)
 		try:
 			webpage = urllib2.urlopen(request).read()
 		except (urllib2.URLError, httplib.HTTPException, socket.error), err:
@@ -3478,13 +3490,13 @@ class XVideosIE(InfoExtractor):
 		# Extract video URL
 		mobj = re.search(r'flv_url=(.+?)&', webpage)
 		if mobj is None:
-			self._downloader.trouble(u'ERROR: unable to extract video title')
+			self._downloader.trouble(u'ERROR: unable to extract video url')
 			return
 		video_url = urllib2.unquote(mobj.group(1).decode('utf-8'))
 
 
 		# Extract title
-		mobj = re.search(r'<title>(.*?)</title>', webpage)
+		mobj = re.search(r'<title>(.*?)\s+-\s+XVID', webpage)
 		if mobj is None:
 			self._downloader.trouble(u'ERROR: unable to extract video title')
 			return
