@@ -701,15 +701,32 @@ class FileDownloader(object):
 			self.trouble(u'ERROR: invalid system charset or erroneous output template')
 			return None
 
+	def _match_entry(self, info_dict):
+		""" Returns None iff the file should be downloaded """
+
+		title = info_dict['title']
+		matchtitle = self.params.get('matchtitle', False)
+		if matchtitle and not re.search(matchtitle, title, re.IGNORECASE):
+			return u'[download] "' + title + '" title did not match pattern "' + matchtitle + '"'
+		rejecttitle = self.params.get('rejecttitle', False)
+		if rejecttitle and re.search(rejecttitle, title, re.IGNORECASE):
+			return u'"' + title + '" title matched reject pattern "' + rejecttitle + '"'
+		return None
+
 	def process_info(self, info_dict):
 		"""Process a single dictionary returned by an InfoExtractor."""
+
+		reason = self._match_entry(info_dict)
+		if reason is not None:
+			self.to_screen(u'[download] ' + reason)
+			return
 
 		max_downloads = self.params.get('max_downloads')
 		if max_downloads is not None:
 			if self._num_downloads > int(max_downloads):
 				self.to_screen(u'[download] Maximum number of downloads reached. Skipping ' + info_dict['title'])
 				return
-		
+
 		filename = self.prepare_filename(info_dict)
 		
 		# Forced printings
@@ -733,16 +750,6 @@ class FileDownloader(object):
 		if filename is None:
 			return
 
-		matchtitle=self.params.get('matchtitle',False)
-		rejecttitle=self.params.get('rejecttitle',False)
-		title=info_dict['title'].encode(preferredencoding(), 'xmlcharrefreplace')
-		if matchtitle and not re.search(matchtitle, title, re.IGNORECASE):
-			self.to_screen(u'[download] "%s" title did not match pattern "%s"' % (title, matchtitle))
-			return
-		if rejecttitle and re.search(rejecttitle, title, re.IGNORECASE):
-			self.to_screen(u'[download] "%s" title matched reject pattern "%s"' % (title, rejecttitle))
-			return
-			
 		if self.params.get('nooverwrites', False) and os.path.exists(filename):
 			self.to_stderr(u'WARNING: file exists and will be skipped')
 			return
@@ -1665,7 +1672,7 @@ class DailymotionIE(InfoExtractor):
 
 		video_url = mediaURL
 
-		mobj = re.search(r'(?im)<title>Dailymotion\s*-\s*(.+)\s*-\s*[^<]+?</title>', webpage)
+		mobj = re.search(r'(?im)<title>\s*(.+)\s*-\s*Video\s+Dailymotion</title>', webpage)
 		if mobj is None:
 			self._downloader.trouble(u'ERROR: unable to extract title')
 			return
@@ -4129,7 +4136,7 @@ def parseOpts():
 			action='store_true', dest='autonumber',
 			help='number downloaded files starting from 00000', default=False)
 	filesystem.add_option('-o', '--output',
-			dest='outtmpl', metavar='TEMPLATE', help='output filename template. Use %(stitle)s to get the title, %(uploader)s for the uploader name, %(autonumber)s to get an automatically incremented number, %(ext)s for the filename extension, %(upload_date)s for the upload date (YYYYMMDD), and %% for a literal percent')
+			dest='outtmpl', metavar='TEMPLATE', help='output filename template. Use %(stitle)s to get the title, %(uploader)s for the uploader name, %(autonumber)s to get an automatically incremented number, %(ext)s for the filename extension, %(upload_date)s for the upload date (YYYYMMDD), and %% for a literal percent. Use - to output to stdout.')
 	filesystem.add_option('-a', '--batch-file',
 			dest='batchfile', metavar='FILE', help='file containing URLs to download (\'-\' for stdin)')
 	filesystem.add_option('-w', '--no-overwrites',
@@ -4172,7 +4179,12 @@ def parseOpts():
 	parser.add_option_group(authentication)
 	parser.add_option_group(postproc)
 
-	argv = _readOptions('/etc/youtube-dl.conf') + _readOptions(os.path.expanduser('~/.youtube-dl.conf')) + sys.argv[1:]
+	xdg_config_home = os.environ.get('XDG_CONFIG_HOME')
+	if xdg_config_home:
+		userConf = os.path.join(xdg_config_home, 'youtube-dl.conf')
+	else:
+		userConf = os.path.join(os.path.expanduser('~'), '.config', 'youtube-dl.conf')
+	argv = _readOptions('/etc/youtube-dl.conf') + _readOptions(userConf) + sys.argv[1:]
 	opts, args = parser.parse_args(argv)
 
 	return parser, opts, args
