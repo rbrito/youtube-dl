@@ -1145,6 +1145,7 @@ class YoutubeIE(InfoExtractor):
 	_NETRC_MACHINE = 'youtube'
 	# Listed in order of quality
 	_available_formats = ['38', '37', '22', '45', '35', '44', '34', '18', '43', '6', '5', '17', '13']
+	_available_formats_prefer_3D = ['84', '102', '46', '85', '101', '82', '100' , '83', '38', '37', '22', '45', '35', '44', '34', '18', '43', '6', '5', '17', '13']
 	_available_formats_prefer_free = ['38', '37', '45', '22', '44', '35', '43', '34', '18', '6', '5', '17', '13']
 	_video_extensions = {
 		'13': '3gp',
@@ -1156,6 +1157,14 @@ class YoutubeIE(InfoExtractor):
 		'43': 'webm',
 		'44': 'webm',
 		'45': 'webm',
+		'46': 'webm',
+		'82': 'mp4',
+		'83': 'mp4',
+		'84': 'mp4',
+		'85': 'mp4',
+		'100': 'webm',
+		'101': 'webm',
+		'102': 'webm',
 	}
 	_video_dimensions = {
 		'5': '240x400',
@@ -1171,6 +1180,14 @@ class YoutubeIE(InfoExtractor):
 		'43': '360x640',
 		'44': '480x854',
 		'45': '720x1280',
+		'46': '540x1920',
+		'82': '360x640',
+		'83': '240x854',
+		'84': '720x1280',
+		'85': '520x1920',
+		'100': '360x640',
+		'101': '480x854',
+		'102': '720x1280',
 	}	
 	IE_NAME = u'youtube'
 
@@ -4318,6 +4335,8 @@ def parseOpts():
 			action='store_const', dest='format', help='download all available video formats', const='all')
 	video_format.add_option('--prefer-free-formats',
 			action='store_true', dest='prefer_free_formats', default=False, help='prefer free video formats unless a specific one is requested')
+	video_format.add_option('--prefer-3d-formats',
+			action='store_true', dest='prefer_3d_formats', default=False, help='prefer 3D video formats unless a specific one is requested')
 	video_format.add_option('--max-quality',
 			action='store', dest='format_limit', metavar='FORMAT', help='highest quality format to download')
 	video_format.add_option('-F', '--list-formats',
@@ -4584,6 +4603,7 @@ def _real_main():
 		'rejecttitle': opts.rejecttitle,
 		'max_downloads': opts.max_downloads,
 		'prefer_free_formats': opts.prefer_free_formats,
+		'prefer_3d_formats': opts.prefer_3d_formats,
 		})
 	for extractor in extractors:
 		fd.add_info_extractor(extractor)
