@@ -1004,7 +1004,10 @@ class FileDownloader(object):
 			self.trouble(u'\nERROR: aria2c exited with code %d' % retval)
 			return False
 
-	def _do_download(self, filename, url, player_url):
+	def _do_download(self, filename, info_dict):
+		url = info_dict['url']
+		player_url = info_dict.get('player_url', None)
+
 		# Attempt to download using rtmpdump
 		if url.startswith('rtmp'):
 			return self._download_with_rtmpdump(filename, url, player_url)
