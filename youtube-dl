@@ -980,7 +980,9 @@ class FileDownloader(object):
 
 		# Check for aria2c first
 		try:
-			subprocess.call(['aria2c', '-h'], stdout=(file(os.path.devnull, 'w')), stderr=subprocess.STDOUT)
+			subprocess.call(['aria2c', '-h'],
+					stdout=(file(os.path.devnull, 'w')),
+					stderr=subprocess.STDOUT)
 		except (OSError, IOError):
 			self.trouble(u'ERROR: external program requested, but "aria2c" could not be run')
 			return False
