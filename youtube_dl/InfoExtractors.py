@@ -1871,6 +1871,9 @@ class FacebookIE(InfoExtractor):
 					self._downloader.trouble(u'ERROR: requested format not available')
 					return
 				video_url_list = [(req_format, url_map[req_format])] # Specific format
+		else:
+			self._downloader.trouble(u'ERROR: no video URLs could be found')
+			return
 
 		results = []
 		for format_param, video_real_url in video_url_list:
