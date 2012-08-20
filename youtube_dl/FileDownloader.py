@@ -345,6 +345,7 @@ class FileDownloader(object):
 		"""Process a single dictionary returned by an InfoExtractor."""
 
 		info_dict['stitle'] = sanitize_filename(info_dict['title'])
+		info_dict['id'] = sanitize_filename(info_dict['id'])
 
 		reason = self._match_entry(info_dict)
 		if reason is not None:
