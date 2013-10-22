@@ -234,19 +234,6 @@ class YoutubeDL(object):
         error_message = u'%s %s' % (_msg_header, message)
         self.trouble(error_message, tb)
 
-    def slow_down(self, start_time, byte_counter):
-        """Sleep if the download speed is over the rate limit."""
-        rate_limit = self.params.get('ratelimit', None)
-        if rate_limit is None or byte_counter == 0:
-            return
-        now = time.time()
-        elapsed = now - start_time
-        if elapsed <= 0.0:
-            return
-        speed = float(byte_counter) / elapsed
-        if speed > rate_limit:
-            time.sleep((byte_counter - rate_limit * (now - start_time)) / rate_limit)
-
     def report_writedescription(self, descfn):
         """ Report that the description file is being written """
         self.to_screen(u'[info] Writing video description to: ' + descfn)
@@ -448,6 +435,22 @@ class YoutubeDL(object):
         else:
             raise Exception('Invalid result type: %s' % result_type)
 
+    def select_format(self, format_spec, available_formats):
+        if format_spec == 'best' or format_spec is None:
+            return available_formats[-1]
+        elif format_spec == 'worst':
+            return available_formats[0]
+        else:
+            extensions = [u'mp4', u'flv', u'webm', u'3gp']
+            if format_spec in extensions:
+                filter_f = lambda f: f['ext'] == format_spec
+            else:
+                filter_f = lambda f: f['format_id'] == format_spec
+            matches = list(filter(filter_f ,available_formats))
+            if matches:
+                return matches[-1]
+        return None
+
     def process_video_result(self, info_dict, download=True):
         assert info_dict.get('_type', 'video') == 'video'
 
@@ -458,7 +461,8 @@ class YoutubeDL(object):
 
         # This extractors handle format selection themselves
         if info_dict['extractor'] in [u'youtube', u'Youku', u'YouPorn', u'mixcloud']:
-            self.process_info(info_dict)
+            if download:
+                self.process_info(info_dict)
             return info_dict
 
         # We now pick which formats have to be downloaded
@@ -470,17 +474,14 @@ class YoutubeDL(object):
 
         # We check that all the formats have the format and format_id fields
         for (i, format) in enumerate(formats):
-            if format.get('format') is None:
-                if format.get('height') is not None:
-                    if format.get('width') is not None:
-                        format_desc = u'%sx%s' % (format['width'], format['height'])
-                    else:
-                        format_desc = u'%sp' % format['height']
-                else:
-                    format_desc = '???'
-                format['format'] = format_desc
             if format.get('format_id') is None:
                 format['format_id'] = compat_str(i)
+            if format.get('format') is None:
+                format['format'] = u'{id} - {res}{note}'.format(
+                    id=format['format_id'],
+                    res=self.format_resolution(format),
+                    note = u' ({})'.format(format['format_note']) if format.get('format_note') is not None else '',
+                )
 
         if self.params.get('listformats', None):
             self.list_formats(info_dict)
@@ -502,22 +503,20 @@ class YoutubeDL(object):
             formats = sorted(formats, key=_free_formats_key)
 
         req_format = self.params.get('format', 'best')
+        if req_format is None:
+            req_format = 'best'
         formats_to_download = []
-        if req_format == 'best' or req_format is None:
-            formats_to_download = [formats[-1]]
-        elif req_format == 'worst':
-            formats_to_download = [formats[0]]
         # The -1 is for supporting YoutubeIE
-        elif req_format in ('-1', 'all'):
+        if req_format in ('-1', 'all'):
             formats_to_download = formats
         else:
-            # We can accept formats requestd in the format: 34/10/5, we pick
+            # We can accept formats requestd in the format: 34/5/best, we pick
             # the first that is available, starting from left
             req_formats = req_format.split('/')
             for rf in req_formats:
-                matches = filter(lambda f:f['format_id'] == rf ,formats)
-                if matches:
-                    formats_to_download = [matches[0]]
+                selected_format = self.select_format(rf, formats)
+                if selected_format is not None:
+                    formats_to_download = [selected_format]
                     break
         if not formats_to_download:
             raise ExtractorError(u'requested format not available')
@@ -752,16 +751,31 @@ class YoutubeDL(object):
         with locked_file(fn, 'a', encoding='utf-8') as archive_file:
             archive_file.write(vid_id + u'\n')
 
+    @staticmethod
+    def format_resolution(format):
+        if format.get('height') is not None:
+            if format.get('width') is not None:
+                res = u'%sx%s' % (format['width'], format['height'])
+            else:
+                res = u'%sp' % format['height']
+        else:
+            res =  '???'
+        return res
+
     def list_formats(self, info_dict):
         formats_s = []
         for format in info_dict.get('formats', [info_dict]):
-            formats_s.append("%s\t:\t%s\t[%s]" % (format['format_id'],
-                                                format['ext'],
-                                                format.get('format', '???'),
-                                                )
-                            )
+            formats_s.append(u'%-15s: %-5s     %-15s[%s]' % (
+                format['format_id'],
+                format['ext'],
+                format.get('format_note') or '-',
+                self.format_resolution(format),
+                )
+            )
         if len(formats_s) != 1:
             formats_s[0]  += ' (worst)'
             formats_s[-1] += ' (best)'
         formats_s = "\n".join(formats_s)
-        self.to_screen(u"[info] Available formats for %s:\nformat code\textension\n%s" % (info_dict['id'], formats_s)) 
+        self.to_screen(u'[info] Available formats for %s:\n'
+            u'format code    extension   note           resolution\n%s' % (
+                info_dict['id'], formats_s))
